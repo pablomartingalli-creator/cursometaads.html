@@ -1,0 +1,1068 @@
+import { useState, useRef, useEffect, useCallback } from "react";
+
+// ─── INJECT FONTS ───────────────────────────────────────────────
+(function () {
+if (document.getElementById("udi-fonts")) return;
+const l = document.createElement("link");
+l.id = "udi-fonts";
+l.rel = "stylesheet";
+l.href = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap";
+document.head.appendChild(l);
+const s = document.createElement("style");
+s.textContent = `* { box-sizing: border-box; margin: 0; padding: 0; } body { overflow: hidden; }
+::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C9921A44; border-radius: 3px; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes scaleIn { from { opacity:0; transform:scale(0.93); } to { opacity:1; transform:scale(1); } }
+@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+@keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+.fade-up { animation: fadeUp 0.45s ease both; }
+.fade-in { animation: fadeIn 0.35s ease both; }
+.scale-in { animation: scaleIn 0.35s ease both; }`;
+document.head.appendChild(s);
+})();
+
+// ─── DESIGN TOKENS ──────────────────────────────────────────────
+const C = {
+black: "#0C0C0C", white: "#FAFAF6", cream: "#F4F1E8",
+gold: "#C9921A", goldL: "#E8B84B", goldPale: "#FDF3DC",
+gray: "#6B6B6B", grayL: "#E8E8E2",
+blue: "#2563EB", green: "#16A34A", red: "#DC2626",
+};
+const F = {
+display: "'Bebas Neue', cursive",
+heading: "'Syne', sans-serif",
+body: "'DM Sans', sans-serif",
+};
+
+// ─── COURSE DATA ─────────────────────────────────────────────────
+// Timing: content=3min, quiz=2min, practice=8min (real interaction time)
+// Module totals: [16,10,11,16,10,8,8,8,16,16] = 119 min total ≈ 2 horas
+const TOTAL_COURSE_MINUTES = 119;
+
+const MODULES = [
+{
+id: 0, emoji: "🌐", title: "El Ecosistema Meta",
+subtitle: "Por qué es el canal #1 para infoproductos", duration: "16 min",
+steps: [
+{
+type: "content", title: "¿Por qué Meta Ads domina el mercado?",
+body: [
+{ kind: "intro", text: "Meta (Facebook + Instagram) tiene más de 3.200 millones de usuarios activos diarios. Pero su verdadero poder para vender infoproductos no es el tamaño — es la <b>intención latente que podés activar</b>." },
+{ kind: "highlight", label: "Principio clave", text: "En Google la gente busca lo que ya sabe que necesita. En Meta, vos le mostrás a alguien lo que necesita antes de que lo sepa." },
+{ kind: "list", title: "Lo que hace único a Meta Ads:", items: ["Segmentación psicográfica — comportamientos, intereses y datos demográficos precisos", "Formato visual-emocional — los infoproductos se venden con emoción, y Meta es el canal más emocional", "Retargeting granular — podés hablarle diferente a quien ya te conoce", "Escala inmediata — de $5/día a $500/día sin cambiar de canal", "IA nativa — el algoritmo aprende y optimiza automáticamente"] },
+{ kind: "callout", text: "Para Persaltum y la Universidad Digital, Meta Ads es el canal que puede transformar 1 lead en $37 hoy y en $497 en 30 días — si tenés el sistema correcto." },
+]
+},
+{
+type: "content", title: "Cómo funciona el algoritmo de Meta",
+body: [
+{ kind: "intro", text: "Antes de crear tu primer anuncio, necesitás entender cómo piensa Meta. Cada vez que tu anuncio compite por mostrarse, pasa por una <b>subasta en tiempo real</b>." },
+{ kind: "highlight", label: "La fórmula de la subasta", text: "Valor Total = Oferta × Tasa de Acción Estimada × Calidad del Anuncio" },
+{ kind: "list", title: "Los 3 factores determinantes:", items: ["<b>Oferta:</b> Cuánto pagás por resultado — podés dejárselo a Meta o controlarlo", "<b>Tasa de Acción Estimada:</b> Qué tan probable es que la persona haga lo que querés (click, compra, registro)", "<b>Calidad:</b> Qué tan relevante y valioso es tu anuncio para la persona que lo ve"] },
+{ kind: "callout", text: "💡 No siempre gana el que más paga. Un anuncio relevante y de alta calidad puede ganar la subasta a un precio menor. Por eso el creative es tan crítico." },
+]
+},
+{
+type: "quiz",
+question: "Según el algoritmo de Meta, ¿qué determina quién gana la subasta publicitaria?",
+options: ["El que más dinero paga siempre gana", "Una combinación de oferta, tasa de acción estimada y calidad del anuncio", "El anunciante con más historial de cuenta", "El que tiene más seguidores en Instagram"],
+correct: 1,
+explanation: "Exactamente. Meta pondera 3 factores: tu oferta (bid), la probabilidad de que la persona tome acción, y la calidad/relevancia del anuncio. Esto significa que un anuncio muy relevante puede ganar incluso con menos presupuesto."
+},
+{
+type: "practice", title: "Definí tu objetivo real",
+instruction: "Antes de crear un solo anuncio, necesitás claridad total sobre tu punto de partida. Respondé estas preguntas con honestidad:",
+prompts: ["¿Qué producto o servicio vas a promocionar primero? (nombre + precio)", "¿A quién va dirigido? Describí a tu cliente ideal en detalle", "¿Cuál es la acción que querés que tome al ver tu anuncio?"],
+aiPrompt: "Sos el tutor de Meta Ads de la Universidad Digital del Infoproducto. El alumno acaba de definir su objetivo de campaña. Analizá sus respuestas y dales feedback concreto: ¿el objetivo es claro y medible? ¿está bien definido el cliente ideal? ¿la acción deseada es realista? Sé específico, constructivo y breve (máx 120 palabras). Español neutro."
+}
+]
+},
+{
+id: 1, emoji: "🏗️", title: "Estructura de Campañas",
+subtitle: "La pirámide que lo controla todo", duration: "10 min",
+steps: [
+{
+type: "content", title: "La pirámide: Campaña → Conjunto → Anuncio",
+body: [
+{ kind: "intro", text: "Meta Ads tiene 3 niveles jerárquicos. Entender qué controla cada nivel es fundamental para no cometer los errores que más dinero cuestan." },
+{ kind: "cards", items: [
+{ label: "CAMPAÑA", color: C.gold, text: "Definís el OBJETIVO. ¿Qué querés que Meta optimice? (Conversiones, Leads, Tráfico, etc.). También decidís si usás CBO (presupuesto a nivel campaña)." },
+{ label: "CONJUNTO DE ANUNCIOS", color: C.black, text: "Definís QUIÉN y CUÁNDO. Audiencia, ubicaciones, horario, presupuesto individual (si no usás CBO), y la optimización de entrega." },
+{ label: "ANUNCIO", color: C.green, text: "Definís QUÉ ve la persona. Imagen/video, titular, texto, CTA y URL de destino. Es lo único que el usuario percibe." },
+]},
+{ kind: "callout", text: "⚠️ Error #1: Cambiar todo a la vez. Si el anuncio no funciona, ¿es la audiencia, el creative o la oferta? Modificá UNA variable por vez siempre." },
+]
+},
+{
+type: "content", title: "Objetivos de campaña: cuándo usar cada uno",
+body: [
+{ kind: "intro", text: "Meta tiene 6 objetivos principales. Elegir el equivocado es el error más común — Meta va a optimizar literalmente hacia lo que le pediste, nada más." },
+{ kind: "table",
+headers: ["Objetivo", "Usalo cuando...", "Para infoproductos"],
+rows: [
+["Reconocimiento", "Querés que te conozcan", "❌ No al inicio"],
+["Tráfico", "Querés clicks al sitio", "⚠️ Solo para testear páginas"],
+["Interacción", "Querés likes/comentarios", "❌ No para vender"],
+["Leads", "Querés formularios nativos", "✅ Ideal sin Píxel"],
+["Ventas", "Querés conversiones directas", "✅ Ideal con Píxel"],
+["Promo de app", "Tenés una app", "❌ No aplica"],
+]
+},
+{ kind: "highlight", label: "Regla de oro", text: "Para infoproductos: empezá con LEADS (sin Píxel) o VENTAS (con Píxel y datos de conversión). Nunca empieces con Tráfico para vender." },
+]
+},
+{
+type: "quiz",
+question: "Lanzás tu primer infoproducto de $37 y querés captar emails. Todavía no instalaste el Píxel. ¿Qué objetivo elegís?",
+options: ["Tráfico — para llevar gente a tu landing page", "Ventas — es la que más convierte siempre", "Leads — formulario nativo de Meta para captar datos", "Interacción — para generar ruido primero"],
+correct: 2,
+explanation: "Correcto. Sin Píxel, la campaña de Leads con formularios nativos de Meta es la más eficiente. Meta optimiza hacia personas propensas a completar formularios, y recibís los datos directamente sin necesitar una landing page perfecta."
+},
+{
+type: "quiz",
+question: "En la pirámide de Meta Ads, ¿en qué nivel definís la audiencia a la que mostrás el anuncio?",
+options: ["En la Campaña", "En el Conjunto de Anuncios", "En el Anuncio", "En el Business Manager"],
+correct: 1,
+explanation: "En el Conjunto de Anuncios (Ad Set) definís quién ve tus anuncios: audiencia, ubicaciones, presupuesto y horarios. La Campaña define el objetivo, y el Anuncio es lo que la persona ve."
+}
+]
+},
+{
+id: 2, emoji: "🎯", title: "Audiencias",
+subtitle: "Hablarle exactamente a la persona correcta", duration: "11 min",
+steps: [
+{
+type: "content", title: "Los 3 tipos de audiencia: temperatura del tráfico",
+body: [
+{ kind: "intro", text: "No todas las audiencias están igual de listas para comprar. El concepto de 'temperatura' define en qué etapa del proceso de decisión está cada persona." },
+{ kind: "cards", items: [
+{ label: "❄️ TRÁFICO FRÍO", color: C.blue, text: "Nunca oyeron hablar de vos. Alta escala, menor conversión inmediata. Se trabaja con intereses, comportamientos y lookalikes. Objetivo: primera impresión poderosa." },
+{ label: "🌡️ TRÁFICO TIBIO", color: "#D97706", text: "Ya interactuaron con tu contenido (vieron videos, siguieron tu página, visitaron tu web). Mayor intención. Se trabaja con audiencias personalizadas." },
+{ label: "🔥 TRÁFICO CALIENTE", color: C.red, text: "Ya te compraron, completaron un formulario o llegaron al checkout. Alta conversión, menor volumen. Retargeting específico y upsells." },
+]},
+{ kind: "callout", text: "💡 Necesitás los 3 tipos funcionando en simultáneo. Frío llena el embudo. Tibio convierte. Caliente maximiza el valor por cliente." },
+]
+},
+{
+type: "content", title: "Intereses y segmentación estratégica para LATAM",
+body: [
+{ kind: "intro", text: "Las audiencias por intereses son el punto de entrada al tráfico frío. Meta conoce los intereses de cada persona por su comportamiento en la plataforma." },
+{ kind: "list", title: "Estrategia de intereses para infoproductos LATAM:", items: [
+"<b>Intereses directos:</b> 'Emprendimiento', 'Marketing digital', 'Cursos online', 'Trabajo desde casa', 'Educación online'",
+"<b>Competidores/referentes:</b> Páginas de referentes del sector si están disponibles en el segmentador",
+"<b>Comportamientos:</b> 'Compradores activos por internet', 'Administradores de páginas de negocios'",
+"<b>Intereses adyacentes:</b> Si vendés finanzas personales → también 'inversión', 'libertad financiera', 'ahorro'"
+]},
+{ kind: "highlight", label: "Tamaño recomendado en LATAM", text: "Entre 500.000 y 3.000.000 personas por conjunto. Más pequeño = muy restrictivo. Más grande = muy diluido y caro." },
+{ kind: "callout", text: "⚠️ Error frecuente: apilar muchos intereses en un solo conjunto. Mejor conjuntos separados por interés para saber exactamente cuál funciona." },
+]
+},
+{
+type: "content", title: "Audiencias Personalizadas y Lookalike",
+body: [
+{ kind: "intro", text: "Las audiencias más poderosas de Meta no son las de intereses — son las que se construyen a partir de datos reales de tu negocio." },
+{ kind: "list", title: "Custom Audiences — fuentes disponibles:", items: [
+"<b>Lista de clientes:</b> Subís un CSV con emails/teléfonos y Meta encuentra esas personas",
+"<b>Visitantes del sitio web:</b> Requiere Píxel — segmentá por páginas específicas visitadas",
+"<b>Actividad en Instagram/Facebook:</b> Quienes vieron videos, mandaron mensaje, visitaron tu perfil",
+"<b>Compradores en Hotmart/Kiwify:</b> Exportás la lista y la subís a Meta"
+]},
+{ kind: "highlight", label: "Lookalike Audiences (LAL)", text: "Le das a Meta una audiencia fuente (ej: tus 200 compradores) y Meta encuentra millones de personas similares. LAL 1% = más parecido a tu fuente. LAL 5-10% = más volumen, menos precisión." },
+{ kind: "callout", text: "🏆 La mejor audiencia posible: LAL 1% basado en compradores reales. Con 100+ compradores, activá esto y tu CPL bajará drásticamente." },
+]
+},
+{
+type: "quiz",
+question: "Tenés 300 compradores en Hotmart. ¿Cuál es la estrategia más inteligente con esa base?",
+options: [
+"No hacer nada, ya compraron",
+"Crear una Custom Audience y luego un Lookalike 1% para encontrar personas similares",
+"Crear solo audiencias de intereses amplias para escalar",
+"Usar la lista solo para excluirlos de los anuncios"
+],
+correct: 1,
+explanation: "Tus compradores son tu activo más valioso en Meta. Primero creás una Custom Audience para retargeting y upsell. Luego usás esa lista como fuente de un Lookalike 1%, que le dice a Meta 'encontrá millones parecidos a estos compradores'. Es el tráfico frío de mayor calidad posible."
+}
+]
+},
+{
+id: 3, emoji: "✍️", title: "Creativos que Venden",
+subtitle: "El 70% del éxito de tu campaña", duration: "16 min",
+steps: [
+{
+type: "content", title: "Por qué el creative es más importante que la audiencia",
+body: [
+{ kind: "intro", text: "En 2025, Meta le da más peso al creative que a la segmentación. ¿Por qué? Porque el contenido del anuncio es la señal más fuerte para que el algoritmo entienda a quién mostrárselo." },
+{ kind: "highlight", label: "La regla del 70/20/10", text: "70% del resultado de tu campaña depende del creative (imagen + copy). 20% de la audiencia. 10% de la estrategia de puja y presupuesto." },
+{ kind: "list", title: "Los 5 tipos de creative que funcionan para infoproductos:", items: [
+"<b>Talking head:</b> Vos hablando a cámara. El más convertidor cuando es auténtico y directo.",
+"<b>Testimonio en video:</b> Un cliente real cuenta su resultado. Máxima credibilidad social.",
+"<b>Antes/después:</b> La transformación visible. Aplica a cualquier área de conocimiento.",
+"<b>VSL (Video Sales Letter):</b> Video de 2-15 min que explica problema + solución + llamado.",
+"<b>Imagen estática con copy:</b> Simple pero efectivo, especialmente para audiencias tibias."
+]},
+]
+},
+{
+type: "content", title: "La estructura del copy perfecto para Meta",
+body: [
+{ kind: "intro", text: "Un anuncio tiene 3 partes: el <b>hook</b> (primeras palabras/segundos), el <b>cuerpo</b>, y el <b>CTA</b>. Si el hook no funciona, nadie lee el resto." },
+{ kind: "list", title: "Fórmulas de hook probadas:", items: [
+"❓ Pregunta directa: '¿Por qué tu negocio digital no genera ventas todavía?'",
+"🚨 Declaración disruptiva: 'El 90% de los cursos online fallan por esta razón'",
+"🎯 Específico y personal: 'Si sos profesional y querés monetizar lo que sabés...'",
+"📊 Número concreto: 'Cómo generé $3.000 en 30 días con un infoproducto de $37'",
+"⏰ Urgencia real: 'Este método deja de funcionar cuando todos lo usen'"
+]},
+{ kind: "cards", items: [
+{ label: "HOOK", color: C.gold, text: "Primeros 3 segundos (video) o primeras 2 líneas (texto). Genera curiosidad o identificación inmediata." },
+{ label: "CUERPO", color: C.black, text: "Desarrollás el problema (agitación), mostrás la solución y construís credibilidad. Párrafos cortos, bullets, fácil de scanear." },
+{ label: "CTA", color: C.green, text: "Una sola acción. Específica. 'Hacé click para acceder gratis' siempre supera a 'Conocé más'." },
+]},
+]
+},
+{
+type: "practice", title: "Escribí tus primeros hooks",
+instruction: "Aplicá las fórmulas que aprendiste. El tutor IA va a analizar cada hook y darte feedback para mejorarlo:",
+prompts: ["¿Cuál es tu infoproducto? (nombre, tema y transformación que promete)", "Hook #1 — Pregunta directa a tu cliente ideal", "Hook #2 — Número concreto o resultado específico", "Hook #3 — Declaración disruptiva sobre el mercado"],
+aiPrompt: "Sos el tutor de Meta Ads de la Universidad Digital del Infoproducto. El alumno escribió 3 hooks para sus anuncios de Facebook/Instagram. Analizá cada uno según: claridad, capacidad de detener el scroll, especificidad, y conexión con la audiencia. Dales una versión mejorada de cada hook + una puntuación del 1 al 10. Sé directo y constructivo. Máx 200 palabras. Español neutro."
+},
+{
+type: "quiz",
+question: "¿Qué porcentaje del resultado de una campaña de Meta Ads depende del creative según el algoritmo actual?",
+options: ["30% — la segmentación sigue siendo lo más importante", "50% — está dividido en partes iguales", "70% — el creative es el factor dominante", "90% — la audiencia casi no importa"],
+correct: 2,
+explanation: "Correcto. El creative es responsable de aproximadamente el 70% del resultado. Meta usa el contenido del anuncio como señal para entender a quién mostrárselo, lo que reduce la dependencia de la segmentación manual. Un gran creative encuentra su audiencia por sí solo."
+}
+]
+},
+{
+id: 4, emoji: "💰", title: "Presupuesto y Métricas",
+subtitle: "Invertir con inteligencia, medir lo que importa", duration: "10 min",
+steps: [
+{
+type: "content", title: "CBO vs ABO: el control del presupuesto",
+body: [
+{ kind: "intro", text: "CBO (Campaign Budget Optimization) y ABO (Ad Set Budget Optimization) son dos filosofías diferentes de control del gasto. Elegir mal puede hacerte perder dinero sin entender por qué." },
+{ kind: "table",
+headers: ["", "CBO", "ABO"],
+rows: [
+["¿Dónde va el presupuesto?", "Meta lo distribuye entre conjuntos", "Vos controlás cada conjunto"],
+["Ventaja principal", "Más eficiencia en el gasto total", "Control total y datos claros"],
+["Ideal para...", "Escalar campañas ganadoras", "Testear audiencias y creativos"],
+["Riesgo", "Puede ignorar conjuntos pequeños", "Puede gastar en los peores conjuntos"],
+]
+},
+{ kind: "highlight", label: "Recomendación para empezar", text: "Empezá con ABO ($5-10/día por conjunto) para testear. Una vez que identificás ganadores, migrás a CBO para escalar." },
+]
+},
+{
+type: "content", title: "Las 5 métricas que realmente importan",
+body: [
+{ kind: "intro", text: "Meta te muestra decenas de métricas. La mayoría son vanidad. Solo 5 determinan si tu campaña es rentable." },
+{ kind: "list", title: "Las métricas clave:", items: [
+"<b>CPL (Costo por Lead):</b> Cuánto pagás por cada contacto. Para infoproductos LATAM, entre $0.50 y $3 USD es saludable.",
+"<b>CPC (Costo por Click):</b> Si supera $1.50, el hook no está generando interés suficiente.",
+"<b>CTR (Click-Through Rate):</b> >2% es bueno. <1% indica un problema serio en el creative.",
+"<b>CPM (Costo por 1000 impresiones):</b> Refleja competencia de la audiencia. CPM alto = audiencia cara.",
+"<b>ROAS (Return on Ad Spend):</b> Ingresos / Gasto. Si gastás $100 y generás $300, tu ROAS es 3x. Apuntá a >2.5x para ser rentable."
+]},
+{ kind: "callout", text: "📊 Regla de diagnóstico: CTR bajo → problema en el CREATIVE. CTR alto pero sin ventas → problema en la LANDING PAGE o la OFERTA." },
+]
+},
+{
+type: "quiz",
+question: "Tu campaña tiene un CTR de 3.5% (excelente) pero casi nadie compra tu infoproducto de $37. ¿Cuál es el problema más probable?",
+options: [
+"El presupuesto es muy bajo para generar ventas",
+"La audiencia está completamente equivocada",
+"El anuncio genera clicks pero la landing page o la oferta no convierte",
+"El objetivo de campaña es equivocado"
+],
+correct: 2,
+explanation: "Un CTR alto significa que el anuncio funciona perfectamente — la gente hace click. El problema está después del click: la landing page no convierte, el precio no está justificado, o la oferta no es lo suficientemente clara. El anuncio hizo su trabajo; la página no."
+},
+{
+type: "quiz",
+question: "¿Cuál es la estrategia de presupuesto recomendada para alguien que empieza a testear Meta Ads?",
+options: [
+"CBO alto para que Meta aprenda rápido",
+"ABO con $5-10/día por conjunto para testear audiencias y creativos",
+"Dejar todo automático y que Meta decida",
+"Empezar con $100/día para tener datos más rápido"
+],
+correct: 1,
+explanation: "ABO con presupuesto controlado por conjunto es la mejor forma de empezar. Te permite ver exactamente qué audiencia y qué creative funciona, con gasto predecible. Con $5-10/día por conjunto, en 3-5 días tenés datos suficientes para tomar decisiones."
+}
+]
+},
+{
+id: 5, emoji: "📡", title: "Píxel y Conversiones",
+subtitle: "El cerebro de tus campañas avanzadas", duration: "8 min",
+steps: [
+{
+type: "content", title: "Qué es el Píxel de Meta y por qué cambia todo",
+body: [
+{ kind: "intro", text: "El Píxel de Meta es un fragmento de código JavaScript que instalás en tu sitio web. Una vez instalado, envía datos a Meta sobre lo que hacen los visitantes. Es lo que transforma campañas buenas en extraordinarias." },
+{ kind: "list", title: "Con el Píxel podés:", items: [
+"Crear campañas de VENTAS optimizadas por compras reales (no por clicks)",
+"Retargeting granular — visitantes, personas que iniciaron checkout, etc.",
+"Lookalike basados en compradores reales de tu producto",
+"Ver exactamente qué anuncio generó cada venta",
+"Optimizar el presupuesto hacia las personas más parecidas a tus compradores"
+]},
+{ kind: "highlight", label: "Sin Píxel vs Con Píxel", text: "Sin Píxel: Meta optimiza por clicks. Con Píxel: Meta optimiza por compras. La diferencia en costo por venta puede ser de 3x a 10x." },
+]
+},
+{
+type: "content", title: "Eventos del Píxel para tu embudo",
+body: [
+{ kind: "intro", text: "Los 'eventos' son las acciones que el Píxel rastrea. Para un embudo de infoproductos, estos son los más importantes:" },
+{ kind: "list", title: "Eventos clave por etapa:", items: [
+"<b>ViewContent:</b> Alguien visitó tu landing page",
+"<b>Lead:</b> Alguien completó un formulario o se registró",
+"<b>AddToCart:</b> Alguien hizo click en 'comprar'",
+"<b>InitiateCheckout:</b> Alguien llegó a la página de pago",
+"<b>Purchase:</b> ✅ Alguien completó la compra — el evento más valioso"
+]},
+{ kind: "callout", text: "🔑 Para Hotmart: Configurá el Píxel en la sección de integraciones de Hotmart. Hotmart envía automáticamente el evento Purchase cuando alguien compra tu producto." },
+]
+},
+{
+type: "quiz",
+question: "¿Cuál es el beneficio principal de tener el evento 'Purchase' del Píxel bien configurado?",
+options: [
+"Tu sitio web carga más rápido",
+"Meta puede optimizar la entrega hacia personas más propensas a comprar, no solo a hacer click",
+"Los anuncios se vuelven automáticamente más baratos",
+"Podés ver cuántos seguidores tenés en Instagram"
+],
+correct: 1,
+explanation: "Cuando Meta tiene datos de compras reales, usa su IA para encontrar más personas similares a quienes compraron. Optimiza el gasto hacia conversiones reales, no clicks. Es la diferencia entre pagar por tráfico y pagar por compradores."
+}
+]
+},
+{
+id: 6, emoji: "🔄", title: "Retargeting",
+subtitle: "Recuperar el 97% que no compró aún", duration: "8 min",
+steps: [
+{
+type: "content", title: "Por qué el retargeting multiplica tu ROAS",
+body: [
+{ kind: "intro", text: "Estadísticamente, el 97% de las personas que visitan tu landing page no compran en la primera visita. El retargeting es el sistema para recuperar esas personas con mensajes estratégicos." },
+{ kind: "highlight", label: "El principio de frecuencia", text: "Una persona necesita ver tu mensaje entre 7 y 13 veces antes de tomar una decisión de compra. El retargeting automatiza esa repetición de forma inteligente." },
+{ kind: "list", title: "Las 4 audiencias de retargeting más valiosas:", items: [
+"<b>Visitantes de landing page (últimos 30 días)</b> — vieron tu oferta pero no compraron",
+"<b>Personas que iniciaron checkout (AddToCart)</b> — casi compraron, algo las frenó",
+"<b>Seguidores activos de Instagram</b> — ya te conocen, CPL más bajo",
+"<b>Vistas de video >50%</b> — mostraron interés real en tu contenido"
+]},
+]
+},
+{
+type: "content", title: "Secuencias de retargeting para infoproductos",
+body: [
+{ kind: "intro", text: "El retargeting no es solo 'mostrar el mismo anuncio otra vez'. Es una secuencia estratégica que aborda objeciones y genera urgencia progresiva." },
+{ kind: "list", title: "Secuencia de 3 etapas (días 1-21):", items: [
+"<b>Días 1-7 (Objeciones):</b> Anuncio que responde las dudas principales + testimonio de cliente real. 'Sé que estás pensando si funciona para tu caso...'",
+"<b>Días 8-14 (Valor):</b> Recordatorio de beneficios concretos + bonos adicionales. '¿Todavía no lo viste? Estos son los módulos que te estás perdiendo'",
+"<b>Días 15-21 (Urgencia):</b> Deadline real del precio, cierre de acceso, o bono que vence."
+]},
+{ kind: "callout", text: "⚠️ Fundamental: Siempre excluí a tus compradores de las audiencias de retargeting. Es lo más básico y lo más olvidado." },
+]
+},
+{
+type: "quiz",
+question: "Alguien llegó a tu página de checkout de $37 pero no compró. ¿Qué mensaje de retargeting es más efectivo para recuperarla?",
+options: [
+"El mismo anuncio que ya vio, para que lo recuerde",
+"Un anuncio que aborda la objeción principal + un testimonio relevante",
+"Un anuncio de reconocimiento de marca",
+"No vale la pena, si no compró no le interesa"
+],
+correct: 1,
+explanation: "Alguien que llegó al checkout ya está convencida del precio. Algo la frenó: duda sobre los resultados, desconfianza o simplemente distracción. El mejor retargeting aborda la objeción más probable con evidencia social (testimonio) y claridad sobre la transformación que obtiene."
+}
+]
+},
+{
+id: 7, emoji: "📈", title: "Testing y Escala",
+subtitle: "Crecer sin romper lo que funciona", duration: "8 min",
+steps: [
+{
+type: "content", title: "Testing: cómo encontrar el anuncio ganador",
+body: [
+{ kind: "intro", text: "El testing no es opcional — es el proceso central de toda campaña rentable. No se trata de 'si funciona' sino de 'cuál funciona mejor'." },
+{ kind: "list", title: "Qué testear y en qué orden:", items: [
+"<b>1° El hook (imagen/video):</b> El mayor impacto. Testeá 3-5 hooks distintos con el mismo cuerpo.",
+"<b>2° La audiencia:</b> Con el hook ganador, testeá distintos segmentos.",
+"<b>3° La oferta:</b> Precio, bonos, garantía. ¿Un bono extra mejora la conversión?",
+"<b>4° La landing:</b> Headline, CTA, layout. Cambiá de a uno por vez."
+]},
+{ kind: "highlight", label: "La regla del 1 cambio", text: "Nunca cambies más de 1 variable por test. Si cambiás el hook Y la audiencia al mismo tiempo, no sabés qué funcionó." },
+{ kind: "callout", text: "⏱️ ¿Cuándo pausar? Después de 3-5 días: si CTR < 0.8% o CPL > 3x tu objetivo, pausá y testeá otro hook." },
+]
+},
+{
+type: "content", title: "Cómo escalar sin romper los resultados",
+body: [
+{ kind: "intro", text: "Encontraste un anuncio ganador. Querés gastar más. El problema: subir el presupuesto de golpe resetea la fase de aprendizaje del algoritmo." },
+{ kind: "list", title: "Las 3 formas de escalar:", items: [
+"<b>Escala vertical (subir presupuesto):</b> Máximo 20-30% cada 3-4 días. Más rápido y el algoritmo se resetea.",
+"<b>Escala horizontal (duplicar conjuntos):</b> Duplicá el conjunto ganador con nuevas audiencias similares.",
+"<b>Diversificación creativa:</b> 3-5 variaciones del anuncio ganador cambiando solo el hook."
+]},
+{ kind: "highlight", label: "El anuncio evergreen", text: "Tu objetivo a largo plazo es tener 1-2 anuncios que funcionen durante meses. Son la base de un negocio digital verdaderamente escalable." },
+]
+},
+{
+type: "quiz",
+question: "Tu anuncio tiene un ROAS de 4x y querés duplicar el presupuesto. ¿Cuál es la forma correcta?",
+options: [
+"Duplicar el presupuesto de golpe para aprovechar el momentum",
+"Subir el presupuesto 20-30% cada 3-4 días para no resetear el algoritmo",
+"Crear una campaña nueva con el mismo anuncio y más presupuesto",
+"No cambiar nada — si funciona, no lo toques"
+],
+correct: 1,
+explanation: "La escala gradual (20-30% cada 3-4 días) es la correcta. Meta necesita tiempo para adaptar su algoritmo al nuevo presupuesto. Un salto brusco entra en 'fase de aprendizaje' de nuevo, elevando costos temporalmente y arruinando un conjunto ganador."
+}
+]
+},
+{
+id: 8, emoji: "🤖", title: "IA en Meta Ads",
+subtitle: "La ventaja competitiva de 2025", duration: "16 min",
+steps: [
+{
+type: "content", title: "Advantage+ y la IA nativa de Meta",
+body: [
+{ kind: "intro", text: "Meta está apostando todo a la automatización con IA. Las campañas Advantage+ son su apuesta central: menos control manual, más optimización automática." },
+{ kind: "list", title: "Qué hace Advantage+:", items: [
+"Combina audiencias frías y retargeting automáticamente",
+"Distribuye el presupuesto donde la probabilidad de conversión es mayor",
+"Testa creativos automáticamente si subís múltiples variaciones",
+"Ideal para infoproductos con Píxel bien configurado y datos de conversión"
+]},
+{ kind: "highlight", label: "¿Cuándo activar Advantage+?", text: "Cuando tenés el Píxel con 50+ eventos de Purchase en los últimos 30 días. Sin esa base de datos, el algoritmo no tiene con qué aprender." },
+]
+},
+{
+type: "content", title: "Stack de IA para crear mejores anuncios más rápido",
+body: [
+{ kind: "intro", text: "Además de la IA nativa de Meta, hay herramientas externas que multiplican tu velocidad para crear y testear creativos." },
+{ kind: "list", title: "Stack recomendado 2025:", items: [
+"<b>Claude / ChatGPT:</b> Generación de hooks, copy del anuncio, variaciones. Prompt ideal: 'Creá 5 hooks para un anuncio de Facebook que vende [producto] a [audiencia ideal]'",
+"<b>Canva Magic + IA:</b> Generación de imágenes para anuncios en minutos",
+"<b>CapCut + IA:</b> Edición de video con subtítulos automáticos. Los reels con subtítulos tienen 40% más retención.",
+"<b>Descript:</b> Elimina silencios, 'ehmm' y errores de videos hablados automáticamente"
+]},
+{ kind: "highlight", label: "El flujo con IA (2 horas → 15 creativos)", text: "Grabás 1 video → CapCut subtitula → Claude genera 5 copys → Canva crea 3 variaciones → Meta testea todo automáticamente." },
+]
+},
+{
+type: "practice", title: "Generá copy con IA para tu anuncio real",
+instruction: "Completá los datos de tu producto y recibís copy completo y optimizado para Meta Ads, listo para usar:",
+prompts: ["¿Cuál es tu infoproducto? (nombre, tema principal, precio)", "¿A quién va dirigido? (perfil específico: profesión, problema, deseo)", "¿Cuál es la transformación concreta que promete? (de X situación a Y resultado)"],
+aiPrompt: "Sos el tutor de Meta Ads de la Universidad Digital del Infoproducto y un experto en copywriting para infoproductos en LATAM. El alumno te dio datos de su producto. Creá para él/ella: 1) Un hook de texto (primera línea del anuncio, máx 15 palabras) 2) El cuerpo del anuncio completo (150-200 palabras, párrafos cortos de 2-3 líneas, con bullet points) 3) El CTA final específico. Todo optimizado para Facebook e Instagram. Español neutro para LATAM. Sé persuasivo pero genuino."
+},
+{
+type: "quiz",
+question: "¿Cuántos eventos de 'Purchase' en el Píxel necesitás en los últimos 30 días para que Advantage+ funcione bien?",
+options: ["No necesitás ninguno, Meta aprende desde cero", "Al menos 10 eventos de compra", "Al menos 50 eventos de Purchase", "Más de 1000 compras históricas"],
+correct: 2,
+explanation: "Meta recomienda al menos 50 eventos de conversión en los últimos 30 días para que su algoritmo tenga datos suficientes para optimizar. Por debajo de eso, la IA adivina y los resultados son impredecibles. Con menos datos, usá campañas con segmentación manual."
+}
+]
+},
+{
+id: 9, emoji: "🏆", title: "Tu Campaña Completa",
+subtitle: "El Sistema 20/80 aplicado a Meta Ads", duration: "16 min",
+steps: [
+{
+type: "content", title: "El sistema completo: de $0 a primera venta",
+body: [
+{ kind: "intro", text: "Llegaste al módulo final. Acá integramos todo lo aprendido en un sistema concreto para lanzar tu infoproducto con Meta Ads." },
+{ kind: "list", title: "✅ Checklist de lanzamiento (en orden):", items: [
+"<b>Semana 1 — Base:</b> Business Manager creado · Píxel instalado en landing · Hotmart/Kiwify integrado con Píxel",
+"<b>Semana 1 — Creative:</b> 3-5 hooks diferentes filmados o diseñados · Copy escrito con las fórmulas del módulo 4",
+"<b>Semana 2 — Lanzamiento:</b> Campaña ABO · Objetivo Leads o Ventas · 3 conjuntos ($5-10/día c/u) · 3 creativos por conjunto",
+"<b>Días 3-7 — Análisis:</b> Pausar conjuntos con CTR <1% · Escalar los que tienen CPL dentro del objetivo",
+"<b>Semana 3 — Retargeting:</b> Campaña separada para visitantes de landing + seguidores activos",
+"<b>Mes 2 — Escala:</b> CBO con conjuntos ganadores · LAL 1% de compradores · Advantage+ si tenés 50+ purchases"
+]},
+]
+},
+{
+type: "content", title: "El embudo de 3 niveles funcionando en simultáneo",
+body: [
+{ kind: "intro", text: "Un sistema de Meta Ads para infoproductos no es un anuncio — es un embudo de 3 niveles trabajando al mismo tiempo." },
+{ kind: "cards", items: [
+{ label: "NIVEL 1 — FRÍO", color: C.blue, text: "Anuncio de entrada → Landing page de lead o venta directa. Audiencia: intereses + LAL. Presupuesto: 60% del total." },
+{ label: "NIVEL 2 — TIBIO", color: "#D97706", text: "Retargeting de visitantes y seguidores → Anuncio de objeciones + testimonio. Presupuesto: 30% del total." },
+{ label: "NIVEL 3 — CALIENTE", color: C.red, text: "Retargeting de checkouts abandonados → Upsell a compradores → Order Bump. Presupuesto: 10% del total." },
+]},
+{ kind: "callout", text: "🎯 Con $300/mes bien distribuidos en este sistema: 50-100 leads diarios y 20-40 ventas de $37 → $740-$1480/mes. Solo del nivel de entrada." },
+]
+},
+{
+type: "practice", title: "Tu plan de campaña personalizado",
+instruction: "Completá esta información y recibirás un plan de campaña concreto y personalizado para tu situación real:",
+prompts: ["¿Cuál es tu producto, precio y URL de destino?", "¿Cuánto presupuesto mensual disponés para Meta Ads? (USD)", "¿Tenés Píxel instalado? ¿Cuántas ventas/leads registradas hasta hoy?", "¿Cuál es tu mayor duda o miedo antes de lanzar?"],
+aiPrompt: "Sos el tutor senior de Meta Ads de la Universidad Digital del Infoproducto. El alumno completó el curso completo y está listo para lanzar. Creale: 1) Un plan de campaña personalizado con estructura concreta (objetivos, audiencias recomendadas, presupuesto por conjunto, tipos de creativos) 2) Una respuesta directa y honesta a su duda o miedo principal 3) Los 3 próximos pasos concretos que deben hacer esta semana para empezar. Sé específico, práctico y motivador. Este es su momento de lanzarse al mercado. Máx 250 palabras. Español neutro LATAM."
+},
+{
+type: "quiz",
+question: "¿Cómo deberías distribuir el presupuesto de Meta Ads entre los 3 niveles del embudo?",
+options: [
+"100% en tráfico frío — más volumen = más ventas siempre",
+"Distribución equitativa — 33% para cada nivel",
+"60% frío, 30% tibio (retargeting), 10% caliente",
+"100% en retargeting — es más barato y convierte mejor"
+],
+correct: 2,
+explanation: "La distribución 60/30/10 es la más equilibrada. El tráfico frío llena constantemente el embudo. El tibio convierte a los interesados. El caliente maximiza el valor por cliente con upsells. Sin frío, el embudo se vacía. Sin retargeting, dejás el 97% de las visitas sin recuperar."
+}
+]
+}
+];
+
+// ─── CALL ANTHROPIC API ──────────────────────────────────────────
+async function callAI(system, messages) {
+const res = await fetch("https://api.anthropic.com/v1/messages", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+model: "claude-sonnet-4-20250514",
+max_tokens: 1000,
+system,
+messages
+})
+});
+const data = await res.json();
+return data.content?.find(b => b.type === "text")?.text || "Error al procesar. Intentá de nuevo.";
+}
+
+// ─── CONTENT RENDERER ────────────────────────────────────────────
+function BodyContent({ items }) {
+return (
+<div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+{items.map((item, i) => {
+if (item.kind === "intro") return (
+<p key={i} style={{ fontFamily: F.body, fontSize: 16, lineHeight: 1.75, color: "#2C2C2C" }}
+dangerouslySetInnerHTML={{ __html: item.text }} />
+);
+if (item.kind === "highlight") return (
+<div key={i} style={{ background: C.goldPale, border: `1.5px solid ${C.gold}`, borderRadius: 10, padding: "16px 20px" }}>
+<div style={{ fontFamily: F.heading, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.gold, marginBottom: 6 }}>{item.label}</div>
+<p style={{ fontFamily: F.body, fontSize: 15, color: C.black, lineHeight: 1.65, fontWeight: 500 }}>{item.text}</p>
+</div>
+);
+if (item.kind === "callout") return (
+<div key={i} style={{ background: "#F0F9FF", border: "1.5px solid #BAE6FD", borderRadius: 10, padding: "14px 18px" }}>
+<p style={{ fontFamily: F.body, fontSize: 14, color: "#0C4A6E", lineHeight: 1.65 }}>{item.text}</p>
+</div>
+);
+if (item.kind === "list") return (
+<div key={i}>
+{item.title && <p style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 14, color: C.black, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>{item.title}</p>}
+<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+{item.items.map((li, j) => (
+<div key={j} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+<div style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold, flexShrink: 0, marginTop: 8 }} />
+<p style={{ fontFamily: F.body, fontSize: 15, lineHeight: 1.65, color: "#2C2C2C" }} dangerouslySetInnerHTML={{ __html: li }} />
+</div>
+))}
+</div>
+</div>
+);
+if (item.kind === "cards") return (
+<div key={i} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+{item.items.map((card, j) => (
+<div key={j} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C.grayL}`, display: "flex" }}>
+<div style={{ width: 6, background: card.color, flexShrink: 0 }} />
+<div style={{ padding: "14px 16px", flex: 1 }}>
+<div style={{ fontFamily: F.heading, fontWeight: 800, fontSize: 12, letterSpacing: "0.08em", color: card.color, marginBottom: 4 }}>{card.label}</div>
+<p style={{ fontFamily: F.body, fontSize: 14, color: "#444", lineHeight: 1.6 }}>{card.text}</p>
+</div>
+</div>
+))}
+</div>
+);
+if (item.kind === "table") return (
+<div key={i} style={{ overflowX: "auto", borderRadius: 10, border: `1px solid ${C.grayL}` }}>
+<table style={{ width: "100%", borderCollapse: "collapse", fontFamily: F.body, fontSize: 14 }}>
+<thead>
+<tr style={{ background: C.black }}>
+{item.headers.map((h, j) => (
+<th key={j} style={{ padding: "10px 14px", textAlign: "left", color: C.goldL, fontFamily: F.heading, fontWeight: 700, fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>{h}</th>
+))}
+</tr>
+</thead>
+<tbody>
+{item.rows.map((row, j) => (
+<tr key={j} style={{ background: j % 2 === 0 ? C.white : C.cream }}>
+{row.map((cell, k) => (
+<td key={k} style={{ padding: "10px 14px", color: "#333", borderTop: `1px solid ${C.grayL}`, lineHeight: 1.5 }}>{cell}</td>
+))}
+</tr>
+))}
+</tbody>
+</table>
+</div>
+);
+return null;
+})}
+</div>
+);
+}
+
+// ─── QUIZ STEP ────────────────────────────────────────────────────
+function QuizStep({ step, answered, onAnswer }) {
+return (
+<div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+<div style={{ background: C.goldPale, border: `1.5px solid ${C.gold}`, borderRadius: 10, padding: "16px 20px" }}>
+<div style={{ fontFamily: F.heading, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.gold, marginBottom: 8 }}>Pregunta de verificación</div>
+<p style={{ fontFamily: F.body, fontSize: 16, fontWeight: 500, color: C.black, lineHeight: 1.65 }}>{step.question}</p>
+</div>
+<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+{step.options.map((opt, i) => {
+const isSelected = answered === i;
+const isCorrect = i === step.correct;
+const showResult = answered !== undefined;
+let bg = C.white, border = `1.5px solid ${C.grayL}`, color = "#333";
+if (showResult && isCorrect) { bg = "#DCFCE7"; border = `1.5px solid ${C.green}`; color = "#14532D"; }
+else if (showResult && isSelected && !isCorrect) { bg = "#FEE2E2"; border = `1.5px solid ${C.red}`; color = "#7F1D1D"; }
+else if (!showResult) { bg = C.white; }
+return (
+<button key={i} onClick={() => !showResult && onAnswer(i)}
+style={{ background: bg, border, borderRadius: 10, padding: "13px 16px", textAlign: "left", cursor: showResult ? "default" : "pointer", transition: "all 0.18s", display: "flex", alignItems: "center", gap: 12 }}>
+<div style={{ width: 28, height: 28, borderRadius: "50%", background: showResult && isCorrect ? C.green : showResult && isSelected && !isCorrect ? C.red : C.grayL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: showResult ? C.white : C.gray, fontSize: 13, fontFamily: F.heading, fontWeight: 700 }}>
+{showResult && isCorrect ? "✓" : showResult && isSelected && !isCorrect ? "✗" : ["A", "B", "C", "D"][i]}
+</div>
+<span style={{ fontFamily: F.body, fontSize: 15, color, lineHeight: 1.5 }}>{opt}</span>
+</button>
+);
+})}
+</div>
+{answered !== undefined && (
+<div className="fade-up" style={{ background: answered === step.correct ? "#F0FDF4" : "#FFF7ED", border: `1.5px solid ${answered === step.correct ? C.green : "#F59E0B"}`, borderRadius: 10, padding: "14px 18px" }}>
+<div style={{ fontFamily: F.heading, fontWeight: 800, fontSize: 13, color: answered === step.correct ? C.green : "#B45309", marginBottom: 6 }}>
+{answered === step.correct ? "✅ ¡Correcto!" : "💡 Respuesta correcta:"}
+</div>
+<p style={{ fontFamily: F.body, fontSize: 14, color: "#333", lineHeight: 1.65 }}>{step.explanation}</p>
+</div>
+)}
+</div>
+);
+}
+
+// ─── PRACTICE STEP ────────────────────────────────────────────────
+function PracticeStep({ step, stepKey, inputs, result, isLoading, onSubmit }) {
+const [vals, setVals] = useState(inputs || step.prompts.map(() => ""));
+const submitted = !!result;
+
+return (
+<div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+<div style={{ background: C.cream, border: `1.5px solid ${C.grayL}`, borderRadius: 10, padding: "16px 20px" }}>
+<div style={{ fontFamily: F.heading, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: C.gray, marginBottom: 6 }}>Ejercicio práctico</div>
+<p style={{ fontFamily: F.body, fontSize: 15, color: C.black, lineHeight: 1.65 }}>{step.instruction}</p>
+</div>
+{step.prompts.map((prompt, i) => (
+<div key={i}>
+<label style={{ display: "block", fontFamily: F.heading, fontWeight: 700, fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: C.gray, marginBottom: 6 }}>{prompt}</label>
+<textarea value={vals[i]} onChange={e => { const n = [...vals]; n[i] = e.target.value; setVals(n); }}
+disabled={submitted}
+rows={2}
+style={{ width: "100%", background: submitted ? C.cream : C.white, border: `1.5px solid ${C.grayL}`, borderRadius: 8, padding: "10px 14px", fontFamily: F.body, fontSize: 14, color: C.black, resize: "vertical", outline: "none", transition: "border-color 0.2s" }}
+onFocus={e => e.target.style.borderColor = C.gold}
+onBlur={e => e.target.style.borderColor = C.grayL}
+/>
+</div>
+))}
+{!submitted && (
+<button onClick={() => onSubmit(vals)} disabled={isLoading || vals.some(v => !v.trim())}
+style={{ background: vals.some(v => !v.trim()) ? C.grayL : C.gold, color: vals.some(v => !v.trim()) ? C.gray : C.black, border: "none", borderRadius: 8, padding: "13px 24px", fontFamily: F.heading, fontWeight: 800, fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", cursor: vals.some(v => !v.trim()) || isLoading ? "not-allowed" : "pointer", transition: "all 0.18s", display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+{isLoading ? <>
+<div style={{ width: 16, height: 16, border: `2px solid ${C.black}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+Analizando...
+</> : "Enviar y recibir feedback →"}
+</button>
+)}
+{result && (
+<div className="scale-in" style={{ background: C.black, borderRadius: 12, padding: "20px 22px" }}>
+<div style={{ fontFamily: F.heading, fontWeight: 800, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: C.goldL, marginBottom: 12 }}>🤖 Feedback del Tutor IA</div>
+<p style={{ fontFamily: F.body, fontSize: 14, color: "rgba(255,255,255,0.85)", lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{result}</p>
+</div>
+)}
+</div>
+);
+}
+
+// ─── AI CHAT ──────────────────────────────────────────────────────
+function AIChat({ isOpen, onToggle, messages, onSend, isLoading, input, setInput, moduleName }) {
+const endRef = useRef(null);
+useEffect(() => { if (endRef.current) endRef.current.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+return (
+<>
+<button onClick={onToggle}
+style={{ position: "fixed", bottom: 24, right: 24, width: 52, height: 52, borderRadius: "50%", background: C.gold, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, boxShadow: "0 4px 20px rgba(201,146,26,0.5)", zIndex: 200, transition: "transform 0.2s" }}
+onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
+onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}>
+{isOpen ? "✕" : "🤖"}
+</button>
+{isOpen && (
+<div className="scale-in" style={{ position: "fixed", bottom: 86, right: 24, width: 340, height: 460, background: C.black, borderRadius: 16, display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", zIndex: 199, border: `1px solid rgba(201,146,26,0.25)` }}>
+<div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.1)", flexShrink: 0 }}>
+<div style={{ fontFamily: F.heading, fontWeight: 800, fontSize: 14, color: C.white }}>🤖 Tutor IA</div>
+<div style={{ fontFamily: F.body, fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>Módulo: {moduleName}</div>
+</div>
+<div style={{ flex: 1, overflow: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+{messages.length === 0 && (
+<div style={{ textAlign: "center", padding: "20px 10px" }}>
+<div style={{ fontSize: 28, marginBottom: 8 }}>💬</div>
+<p style={{ fontFamily: F.body, fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>Preguntame cualquier duda sobre este módulo o sobre Meta Ads en general.</p>
+</div>
+)}
+{messages.map((m, i) => (
+<div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+<div style={{ maxWidth: "82%", background: m.role === "user" ? C.gold : "rgba(255,255,255,0.08)", borderRadius: m.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px", padding: "10px 13px" }}>
+<p style={{ fontFamily: F.body, fontSize: 13, color: m.role === "user" ? C.black : "rgba(255,255,255,0.88)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{m.content}</p>
+</div>
+</div>
+))}
+{isLoading && (
+<div style={{ display: "flex", gap: 4, padding: "10px 0" }}>
+{[0,1,2].map(j => <div key={j} style={{ width: 8, height: 8, background: C.gold, borderRadius: "50%", animation: `pulse ${0.6 + j * 0.2}s ease-in-out infinite` }} />)}
+</div>
+)}
+<div ref={endRef} />
+</div>
+<div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", gap: 8, flexShrink: 0 }}>
+<input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && !e.shiftKey && onSend()}
+placeholder="Escribí tu pregunta..."
+style={{ flex: 1, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "10px 12px", fontFamily: F.body, fontSize: 13, color: C.white, outline: "none" }} />
+<button onClick={onSend} disabled={!input.trim() || isLoading}
+style={{ background: input.trim() && !isLoading ? C.gold : "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, width: 38, cursor: input.trim() && !isLoading ? "pointer" : "not-allowed", fontSize: 16, transition: "background 0.18s", color: input.trim() && !isLoading ? C.black : "rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
+</div>
+</div>
+)}
+</>
+);
+}
+
+// ─── CELEBRATION ──────────────────────────────────────────────────
+function Celebration({ onClose }) {
+const colors = ["#C9921A", "#E8B84B", "#FDF3DC", "#0C0C0C", "#FAFAF6"];
+return (
+<div className="fade-in" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+{[...Array(20)].map((_, i) => (
+<div key={i} style={{ position: "fixed", left: `${Math.random() * 100}%`, top: "-20px", width: 10, height: 10, background: colors[i % colors.length], borderRadius: i % 3 === 0 ? "50%" : 2, animation: `confettiFall ${2 + Math.random() * 2}s ease ${Math.random() * 1.5}s both` }} />
+))}
+<div className="scale-in" style={{ background: C.black, borderRadius: 20, padding: "48px 40px", textAlign: "center", maxWidth: 420, border: `1px solid rgba(201,146,26,0.3)`, boxShadow: "0 30px 80px rgba(0,0,0,0.5)" }}>
+<div style={{ fontSize: 64, marginBottom: 20 }}>🏆</div>
+<div style={{ fontFamily: F.display, fontSize: 48, color: C.goldL, lineHeight: 1, marginBottom: 12 }}>CURSO COMPLETADO</div>
+<p style={{ fontFamily: F.body, fontSize: 16, color: "rgba(255,255,255,0.7)", lineHeight: 1.7, marginBottom: 28 }}>Terminaste el curso completo de Meta Ads de la Universidad Digital del Infoproducto. Ahora tenés todo lo que necesitás para lanzar tu primera campaña rentable.</p>
+<div style={{ background: "rgba(201,146,26,0.1)", border: `1px solid rgba(201,146,26,0.3)`, borderRadius: 10, padding: "14px 18px", marginBottom: 28 }}>
+<p style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 13, color: C.goldL, lineHeight: 1.6 }}>10 módulos · Píxel · Audiencias · Creativos · Retargeting · Escala · IA</p>
+</div>
+<button onClick={onClose} style={{ background: C.gold, border: "none", borderRadius: 10, padding: "14px 32px", fontFamily: F.heading, fontWeight: 800, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", color: C.black, transition: "all 0.2s" }}
+onMouseEnter={e => e.currentTarget.style.background = C.goldL}
+onMouseLeave={e => e.currentTarget.style.background = C.gold}>
+Ver resumen del curso
+</button>
+</div>
+</div>
+);
+}
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────
+export default function MetaAdsCourse() {
+const [activeModule, setActiveModule] = useState(null); // null = welcome screen
+const [activeStep, setActiveStep] = useState(0);
+const [completedModules, setCompletedModules] = useState(new Set());
+const [quizAnswers, setQuizAnswers] = useState({});
+const [practiceInputs, setPracticeInputs] = useState({});
+const [practiceResults, setPracticeResults] = useState({});
+const [chatMessages, setChatMessages] = useState([]);
+const [chatInput, setChatInput] = useState("");
+const [isChatOpen, setIsChatOpen] = useState(false);
+const [isAiLoading, setIsAiLoading] = useState(false);
+const [isChatLoading, setIsChatLoading] = useState(false);
+const [showCelebration, setShowCelebration] = useState(false);
+const [sidebarOpen, setSidebarOpen] = useState(true);
+const contentRef = useRef(null);
+
+const mod = activeModule !== null ? MODULES[activeModule] : MODULES[0];
+const step = activeModule !== null ? mod.steps[activeStep] : null;
+const stepKey = `${activeModule}-${activeStep}`;
+const totalModuleSteps = activeModule !== null ? mod.steps.length : 0;
+const isLastStep = activeModule !== null && activeStep === totalModuleSteps - 1;
+const isLastModule = activeModule === MODULES.length - 1;
+const overallProgress = activeModule === null ? 0 : Math.round(((completedModules.size + (activeStep / totalModuleSteps)) / MODULES.length) * 100);
+
+const canAdvance = useCallback(() => {
+if (activeModule === null || !step) return false;
+if (step.type === "quiz") return quizAnswers[stepKey] !== undefined;
+if (step.type === "practice") return practiceResults[stepKey] !== undefined;
+return true;
+}, [activeModule, step, stepKey, quizAnswers, practiceResults]);
+
+function handleNext() {
+if (activeModule === null) { setActiveModule(0); setActiveStep(0); return; }
+if (!canAdvance()) return;
+if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: "smooth" });
+if (isLastStep) {
+const nc = new Set(completedModules); nc.add(activeModule); setCompletedModules(nc);
+if (isLastModule) { setShowCelebration(true); }
+else { setActiveModule(m => m + 1); setActiveStep(0); }
+} else { setActiveStep(s => s + 1); }
+}
+
+function handlePrev() {
+if (activeModule === null) return;
+if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: "smooth" });
+if (activeStep > 0) setActiveStep(s => s - 1);
+else if (activeModule > 0) { setActiveModule(m => m - 1); setActiveStep(MODULES[activeModule - 1].steps.length - 1); }
+else { setActiveModule(null); }
+}
+
+async function handlePracticeSubmit(vals) {
+setPracticeInputs(p => ({ ...p, [stepKey]: vals }));
+setIsAiLoading(true);
+const userContent = step.prompts.map((p, i) => `${p}: ${vals[i] || "(sin respuesta)"}`).join("\n");
+try {
+const reply = await callAI(step.aiPrompt, [{ role: "user", content: userContent }]);
+setPracticeResults(p => ({ ...p, [stepKey]: reply }));
+} catch { setPracticeResults(p => ({ ...p, [stepKey]: "No se pudo conectar con el tutor. Podés continuar." })); }
+setIsAiLoading(false);
+}
+
+async function handleChatSend() {
+if (!chatInput.trim() || isChatLoading) return;
+const userMsg = chatInput.trim(); setChatInput("");
+setChatMessages(m => [...m, { role: "user", content: userMsg }]);
+setIsChatLoading(true);
+const history = [...chatMessages, { role: "user", content: userMsg }];
+try {
+const sys = `Sos el Tutor de Meta Ads de la Universidad Digital del Infoproducto. El alumno está en el módulo "${mod.title}". Respondé en español neutro para LATAM, de forma concisa y práctica. Máximo 120 palabras. Enfocate en aplicaciones reales para infoproductos digitales.`;
+const reply = await callAI(sys, history.map(m => ({ role: m.role, content: m.content })));
+setChatMessages(m => [...m, { role: "assistant", content: reply }]);
+} catch { setChatMessages(m => [...m, { role: "assistant", content: "Error de conexión. Intentá de nuevo." }]); }
+setIsChatLoading(false);
+}
+
+// Add spin keyframe
+useEffect(() => {
+if (document.getElementById("spin-kf")) return;
+const s = document.createElement("style");
+s.id = "spin-kf";
+s.textContent = `@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:0.6} }`;
+document.head.appendChild(s);
+}, []);
+
+return (
+<div style={{ display: "flex", height: "100vh", fontFamily: F.body, background: C.cream, overflow: "hidden" }}>
+
+{/* SIDEBAR */}
+<div style={{ width: sidebarOpen ? 260 : 0, minWidth: sidebarOpen ? 260 : 0, background: C.black, display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.3s ease", flexShrink: 0 }}>
+{/* Brand */}
+<div style={{ padding: "20px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+<div style={{ fontFamily: F.display, fontSize: 22, color: C.goldL, letterSpacing: "0.02em", lineHeight: 1 }}>META ADS</div>
+<div style={{ fontFamily: F.heading, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)", marginTop: 4 }}>Universidad Digital del Infoproducto</div>
+{/* Total duration */}
+<div style={{ marginTop: 12, background: "rgba(201,146,26,0.1)", border: "1px solid rgba(201,146,26,0.25)", borderRadius: 7, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+<span style={{ fontSize: 14 }}>⏱️</span>
+<div>
+<div style={{ fontFamily: F.heading, fontWeight: 800, fontSize: 13, color: C.goldL }}>~2 horas en total</div>
+<div style={{ fontFamily: F.body, fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 1 }}>10 módulos · Interactivo con IA</div>
+</div>
+</div>
+{/* Progress */}
+<div style={{ marginTop: 12 }}>
+<div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+<span style={{ fontFamily: F.heading, fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Tu progreso</span>
+<span style={{ fontFamily: F.heading, fontSize: 11, color: C.goldL, fontWeight: 700 }}>{overallProgress}%</span>
+</div>
+<div style={{ height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 2 }}>
+<div style={{ height: "100%", width: `${overallProgress}%`, background: `linear-gradient(to right, ${C.gold}, ${C.goldL})`, borderRadius: 2, transition: "width 0.5s ease" }} />
+</div>
+</div>
+</div>
+{/* Modules List */}
+<div style={{ flex: 1, overflow: "auto", padding: "10px 0" }}>
+{MODULES.map((m, i) => {
+const isActive = i === activeModule;
+const isDone = completedModules.has(i);
+return (
+<button key={i} onClick={() => { setActiveModule(i); setActiveStep(0); }}
+style={{ width: "100%", background: isActive ? "rgba(201,146,26,0.12)" : "transparent", border: "none", borderLeft: isActive ? `3px solid ${C.gold}` : "3px solid transparent", padding: "10px 16px 10px 14px", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s" }}>
+<div style={{ width: 30, height: 30, borderRadius: "50%", background: isDone ? C.gold : isActive ? "rgba(201,146,26,0.2)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: isDone ? 14 : 14, flexShrink: 0, color: isDone ? C.black : C.goldL }}>
+{isDone ? "✓" : m.emoji}
+</div>
+<div style={{ flex: 1, minWidth: 0 }}>
+<div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 12, color: isActive ? C.goldL : isDone ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.55)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.title}</div>
+<div style={{ fontFamily: F.body, fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>{m.duration} · {m.steps.length} pasos</div>
+</div>
+</button>
+);
+})}
+</div>
+</div>
+
+{/* MAIN CONTENT */}
+<div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+
+{/* Top bar */}
+<div style={{ background: C.white, borderBottom: `1px solid ${C.grayL}`, padding: "12px 20px", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+<button onClick={() => setSidebarOpen(o => !o)}
+style={{ background: "none", border: `1px solid ${C.grayL}`, borderRadius: 7, width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: C.gray, flexShrink: 0 }}>
+☰
+</button>
+{activeModule === null ? (
+<div style={{ flex: 1 }}>
+<div style={{ fontFamily: F.heading, fontWeight: 800, fontSize: 14, color: C.black }}>Curso de Meta Ads — Universidad Digital del Infoproducto</div>
+<div style={{ fontFamily: F.body, fontSize: 12, color: C.gray }}>Gratis · Interactivo · ~2 horas · 10 módulos</div>
+</div>
+) : (
+<>
+<div style={{ flex: 1, minWidth: 0 }}>
+<div style={{ fontFamily: F.heading, fontWeight: 800, fontSize: 14, color: C.black, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mod.title}</div>
+<div style={{ fontFamily: F.body, fontSize: 12, color: C.gray }}>{mod.subtitle} · {mod.duration}</div>
+</div>
+{/* Step dots */}
+<div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+{mod.steps.map((s, i) => (
+<div key={i} style={{ width: i === activeStep ? 20 : 8, height: 8, borderRadius: 4, background: completedModules.has(activeModule) || i < activeStep ? C.gold : i === activeStep ? C.goldL : C.grayL, transition: "all 0.25s" }} />
+))}
+</div>
+<div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 12, color: C.gray, flexShrink: 0 }}>{activeStep + 1}/{totalModuleSteps}</div>
+</>
+)}
+</div>
+
+{/* Content area */}
+<div ref={contentRef} style={{ flex: 1, overflow: "auto", padding: activeModule === null ? "0" : "28px 28px 100px" }}>
+
+{/* WELCOME SCREEN */}
+{activeModule === null && (
+<div className="fade-in" style={{ minHeight: "100%", background: C.black, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 32px", textAlign: "center" }}>
+<div style={{ maxWidth: 560 }}>
+<div style={{ fontFamily: F.heading, fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: C.gold, marginBottom: 16 }}>Universidad Digital del Infoproducto · Curso gratuito</div>
+<div style={{ fontFamily: F.display, fontSize: "clamp(48px,8vw,80px)", color: C.white, lineHeight: 0.95, marginBottom: 8 }}>DOMINA</div>
+<div style={{ fontFamily: F.display, fontSize: "clamp(48px,8vw,80px)", color: C.goldL, lineHeight: 0.95, marginBottom: 24 }}>META ADS</div>
+<p style={{ fontFamily: F.body, fontSize: 17, color: "rgba(255,255,255,0.65)", lineHeight: 1.75, marginBottom: 36 }}>
+Un curso <strong style={{ color: C.white }}>100% interactivo</strong> con ejercicios reales, quizzes y un tutor de IA que te responde en el momento. Sin videos. Sin PDFs. Aprendés haciendo.
+</p>
+{/* Stats */}
+<div style={{ display: "flex", justifyContent: "center", gap: 32, marginBottom: 40, flexWrap: "wrap" }}>
+{[
+{ n: "10", label: "Módulos" },
+{ n: "~2h", label: "Duración total" },
+{ n: "24", label: "Lecciones" },
+{ n: "10", label: "Quizzes" },
+{ n: "4", label: "Ejercicios con IA" },
+].map((s, i) => (
+<div key={i} style={{ textAlign: "center" }}>
+<div style={{ fontFamily: F.display, fontSize: 32, color: C.goldL, lineHeight: 1 }}>{s.n}</div>
+<div style={{ fontFamily: F.heading, fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 4 }}>{s.label}</div>
+</div>
+))}
+</div>
+{/* Module overview */}
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 36, textAlign: "left" }}>
+{MODULES.map((m, i) => (
+<div key={i} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+<span style={{ fontSize: 18 }}>{m.emoji}</span>
+<div>
+<div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 12, color: "rgba(255,255,255,0.85)" }}>{m.title}</div>
+<div style={{ fontFamily: F.body, fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 1 }}>{m.duration}</div>
+</div>
+</div>
+))}
+</div>
+<button onClick={() => { setActiveModule(0); setActiveStep(0); }}
+style={{ background: C.gold, border: "none", borderRadius: 10, padding: "16px 40px", fontFamily: F.heading, fontWeight: 800, fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase", color: C.black, cursor: "pointer", boxShadow: `0 6px 28px rgba(201,146,26,0.45)`, transition: "all 0.2s" }}
+onMouseEnter={e => { e.currentTarget.style.background = C.goldL; e.currentTarget.style.transform = "translateY(-2px)"; }}
+onMouseLeave={e => { e.currentTarget.style.background = C.gold; e.currentTarget.style.transform = "translateY(0)"; }}>
+Comenzar el curso →
+</button>
+<div style={{ fontFamily: F.body, fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 14 }}>
+Podés hacerlo en un bloque de 2 horas o avanzar a tu ritmo — el progreso se guarda automáticamente.
+</div>
+</div>
+</div>
+)}
+
+{/* COURSE CONTENT */}
+{activeModule !== null && (
+<div style={{ maxWidth: 680, margin: "0 auto" }}>
+{/* Step type badge */}
+<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+<div style={{ background: step.type === "quiz" ? C.goldPale : step.type === "practice" ? "#EFF6FF" : C.cream, border: `1px solid ${step.type === "quiz" ? C.gold : step.type === "practice" ? C.blue : C.grayL}`, borderRadius: 4, padding: "3px 10px", fontFamily: F.heading, fontWeight: 700, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: step.type === "quiz" ? C.gold : step.type === "practice" ? C.blue : C.gray }}>
+{step.type === "content" ? "📖 Contenido" : step.type === "quiz" ? "❓ Quiz" : "✏️ Ejercicio"}
+</div>
+<div style={{ fontFamily: F.body, fontSize: 12, color: C.gray }}>Módulo {activeModule + 1} · Paso {activeStep + 1}</div>
+</div>
+
+{/* Step title */}
+<h2 style={{ fontFamily: F.display, fontSize: 34, letterSpacing: "0.01em", color: C.black, lineHeight: 1.05, marginBottom: 22 }} className="fade-up">
+{step.title || step.question?.slice(0, 50)}
+</h2>
+
+{/* Step content */}
+<div className="fade-up" key={stepKey}>
+{step.type === "content" && <BodyContent items={step.body} />}
+{step.type === "quiz" && (
+<QuizStep step={step} answered={quizAnswers[stepKey]}
+onAnswer={idx => setQuizAnswers(p => ({ ...p, [stepKey]: idx }))} />
+)}
+{step.type === "practice" && (
+<PracticeStep step={step} stepKey={stepKey}
+inputs={practiceInputs[stepKey]} result={practiceResults[stepKey]}
+isLoading={isAiLoading} onSubmit={handlePracticeSubmit} />
+)}
+</div>
+</div>
+)}
+</div>
+
+{/* Navigation bar */}
+{activeModule !== null && (
+<div style={{ position: "absolute", bottom: 0, left: sidebarOpen ? 260 : 0, right: 0, background: C.white, borderTop: `1px solid ${C.grayL}`, padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "left 0.3s" }}>
+<button onClick={handlePrev}
+style={{ background: "none", border: `1.5px solid ${C.grayL}`, borderRadius: 8, padding: "10px 20px", fontFamily: F.heading, fontWeight: 700, fontSize: 13, letterSpacing: "0.05em", color: C.gray, cursor: "pointer", textTransform: "uppercase", transition: "all 0.15s" }}>
+← Anterior
+</button>
+
+{/* Module progress label */}
+<div style={{ textAlign: "center" }}>
+<div style={{ fontFamily: F.heading, fontWeight: 700, fontSize: 12, color: C.gray, textTransform: "uppercase", letterSpacing: "0.06em" }}>{mod.emoji} {mod.title}</div>
+{step && step.type === "quiz" && quizAnswers[stepKey] === undefined && (
+<div style={{ fontFamily: F.body, fontSize: 11, color: C.gold, marginTop: 2 }}>Respondé para continuar</div>
+)}
+{step && step.type === "practice" && !practiceResults[stepKey] && (
+<div style={{ fontFamily: F.body, fontSize: 11, color: C.blue, marginTop: 2 }}>Completá el ejercicio para continuar</div>
+)}
+</div>
+
+<button onClick={handleNext} disabled={!canAdvance()}
+style={{ background: canAdvance() ? C.gold : C.grayL, border: "none", borderRadius: 8, padding: "11px 22px", fontFamily: F.heading, fontWeight: 800, fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", color: canAdvance() ? C.black : C.gray, cursor: canAdvance() ? "pointer" : "not-allowed", transition: "all 0.18s", boxShadow: canAdvance() ? `0 4px 14px rgba(201,146,26,0.35)` : "none", display: "flex", alignItems: "center", gap: 6 }}>
+{isLastStep && isLastModule ? "Finalizar 🏆" : isLastStep ? "Siguiente módulo →" : "Continuar →"}
+</button>
+</div>
+)}
+</div>
+
+{/* AI Chat */}
+<AIChat isOpen={isChatOpen} onToggle={() => setIsChatOpen(o => !o)}
+messages={chatMessages} onSend={handleChatSend} isLoading={isChatLoading}
+input={chatInput} setInput={setChatInput} moduleName={mod.title} />
+
+{/* Celebration */}
+{showCelebration && <Celebration onClose={() => setShowCelebration(false)} />}
+</div>
+);
+}
